@@ -1,4 +1,4 @@
-from flask import Flask, render_template, redirect, url_for, request, flash, Response
+from flask import Flask, render_template, redirect, url_for, request, flash
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -24,39 +24,7 @@ class User(db.Model, UserMixin):
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-# --- Route CSS dynamique pour l'image de fond ---
-@app.route('/style-fond.css')
-def style_fond():
-    css_content = """
-    body {
-        background-image: url("/static/fond.jpg");
-        background-size: cover;
-        background-position: center;
-        background-repeat: no-repeat;
-        background-attachment: fixed;
-        color: #ffffff;
-        font-family: Arial, sans-serif;
-    }
-    """
-    return Response(css_content, mimetype='text/css')
-
-# --- Création automatique du compte Admin pour Valentin ---
-def initialiser_admin():
-    with app.app_context():
-        db.create_all()
-        email_valentin = "valentin@gmail.com"
-        admin = User.query.filter_by(email=email_valentin).first()
-        if admin:
-            admin.is_admin = True
-            admin.is_approved = True
-            db.session.commit()
-        else:
-            hashed_password = generate_password_hash("admin123", method='pbkdf2:sha256')
-            new_admin = User(email=email_valentin, password=hashed_password, is_admin=True, is_approved=True)
-            db.session.add(new_admin)
-            db.session.commit()
-
-# --- Routes principales ---
+# Routes principales
 @app.route('/')
 def home():
     return render_template('index.html')
@@ -121,7 +89,7 @@ def logout():
     logout_user()
     return redirect(url_for('login'))
 
-# --- Routes d'administration pour Valentin ---
+# Routes d'administration pour Valentin
 @app.route('/admin/dashboard')
 @login_required
 def admin_dashboard():
@@ -143,7 +111,7 @@ def approve_user(user_id):
     
     return redirect(url_for('admin_dashboard'))
 
-# --- Point d'entrée pour lancer l'application en local ---
 if __name__ == '__main__':
-    initialiser_admin()
+    with app.app_context():
+        db.create_all()
     app.run(debug=True)
