@@ -143,7 +143,7 @@ def approve_user(user_id):
     
     return redirect(url_for('admin_dashboard'))
 
-# --- Point d'entrée pour lancer l'application ---
+# --- Point d'entrée pour lancer l'application en local ---
 if __name__ == '__main__':
     initialiser_admin()
     app.run(debug=True)
