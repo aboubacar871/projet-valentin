@@ -85,18 +85,7 @@ TEMPLATE = """
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Rajdhani', sans-serif; }
         
         body {
-            background-image:
-            linear-gradient(
-                rgba(10, 11, 16, 0.70),
-                rgba(10, 11, 16, 0.85)
-            ),
-            url('/static/fond.jpg');
-
-            background-size: cover;
-            background-position: center;
-            background-attachment: fixed;
-            background-repeat: no-repeat;
-
+            background: linear-gradient(135deg, #0a0b10 0%, #121520 50%, #050608 100%);
             color: var(--text-main);
             overflow-x: hidden;
             min-height: 100vh;
@@ -124,21 +113,16 @@ TEMPLATE = """
         .btn-red { background: linear-gradient(45deg, var(--neon-red), #b00020); }
         .btn-green { background: linear-gradient(45deg, var(--neon-green), #00aa55); color: #000; }
         
-        .container { 
-            max-width: 1100px; 
-            margin: 0 auto; 
-            padding: 40px 20px; 
-            background: transparent;
-        }
+        .container { max-width: 1100px; margin: 0 auto; padding: 40px 20px; }
 
         .panel { 
-            background: rgba(18,21,32,0.75); 
+            background: rgba(18,21,32,0.85); 
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.1); 
             border-radius: 10px; 
             padding: 30px; 
             max-width: 550px; 
-            margin: 90px auto 40px auto; 
+            margin: 110px auto 40px auto; 
             box-shadow: 0 0 20px rgba(0,0,0,0.5); 
         }
 
@@ -149,7 +133,7 @@ TEMPLATE = """
             border-radius: 10px;
             padding: 30px;
             max-width: 950px;
-            margin: 90px auto 40px auto;
+            margin: 110px auto 40px auto;
             box-shadow: 0 0 20px rgba(0,0,0,0.5);
         }
 
@@ -181,15 +165,7 @@ TEMPLATE = """
         .alert-success { background: rgba(0, 255, 136, 0.2); color: var(--neon-green); }
         .alert-danger { background: rgba(255, 42, 95, 0.2); color: var(--neon-red); }
         
-        footer { 
-            background: #050608; 
-            padding: 20px; 
-            text-align: center; 
-            color: var(--text-muted); 
-            font-size: 0.9rem; 
-            margin-top: 200px; 
-            border-top: 1px solid rgba(255,255,255,0.05);
-        }
+        footer { background: #050608; padding: 20px; text-align: center; color: var(--text-muted); font-size: 0.9rem; margin-top: auto; border-top: 1px solid rgba(255,255,255,0.05); }
     </style>
 </head>
 <body>
@@ -264,9 +240,9 @@ TEMPLATE = """
         <div class="container">
             <div class="panel">
                 <h2 style="text-align: center; color: var(--neon-green); margin-bottom: 15px;">{{ t.login }}</h2>
+                <p style="text-align: center; color: var(--text-muted); font-size: 0.85rem; margin-bottom: 15px;">Entrez votre email pour vous connecter directement.</p>
                 <form method="POST">
-                    <div class="form-group"><label>Email</label><input type="email" name="email" class="form-control" required></div>
-                    <div class="form-group"><label>Mot de passe</label><input type="password" name="password" class="form-control" required></div>
+                    <div class="form-group"><label>Email</label><input type="email" name="email" class="form-control" placeholder="ex: valentin@cyber.com" required></div>
                     <button type="submit" class="btn-cyber" style="width: 100%;">{{ t.login }}</button>
                 </form>
             </div>
@@ -416,7 +392,7 @@ def register():
 
         hashed_pw = bcrypt.generate_password_hash(password).decode('utf-8')
         
-        # Définit si c'est le compte admin de Valentin (modifiable ici si besoin)
+        # Valentin devient admin automatiquement via cet email
         is_admin = (email.lower() == 'valentin@cyber.com')
         is_validated = True if is_admin else False
 
@@ -443,14 +419,14 @@ def login():
     t = TRANSLATIONS.get(lang, TRANSLATIONS['fr'])
     if request.method == 'POST':
         email = request.form.get('email')
-        password = request.form.get('password')
         user = User.query.filter_by(email=email).first()
 
-        if user and bcrypt.check_password_hash(user.password, password):
+        if user:
             login_user(user)
+            flash('Connexion réussie !', 'success')
             return redirect(url_for('chat', lang=lang))
         else:
-            flash('Identifiants incorrects.', 'danger')
+            flash('Aucun compte trouvé avec cet email.', 'danger')
     return render_template_string(TEMPLATE, page='login', lang=lang, t=t)
 
 @app.route('/chat')
