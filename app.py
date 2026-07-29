@@ -152,7 +152,16 @@ TEMPLATE = """
         .alert { padding: 10px; border-radius: 5px; margin-bottom: 15px; text-align: center; font-weight: bold; }
         .alert-success { background: rgba(0, 255, 136, 0.2); color: var(--neon-green); }
         .alert-danger { background: rgba(255, 42, 95, 0.2); color: var(--neon-red); }
-        footer { background: #050608; padding: 20px; text-align: center; color: var(--text-muted); font-size: 0.9rem; margin-top: 40px; }
+        footer { 
+    background: rgba(5,6,8,0.85);
+    backdrop-filter: blur(8px);
+    padding: 20px; 
+    text-align: center; 
+    color: var(--text-muted); 
+    font-size: 0.9rem; 
+    margin-top: 200px;
+    border-top: 1px solid var(--neon-blue);
+}
     </style>
 </head>
 <body>
