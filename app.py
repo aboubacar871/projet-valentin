@@ -1,5 +1,5 @@
 import os
-from flask import Flask, render_template_string, redirect, url_for, flash, request, session
+from flask import Flask, render_template_string, redirect, url_for, flash, request
 from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
@@ -26,13 +26,10 @@ class User(db.Model, UserMixin):
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-# Dictionnaire de traduction (Multilingue : FR / EN)
 TRANSLATIONS = {
     'fr': {
         'title': "Centre de Formation des Hackers Éthiques",
         'home': "Accueil",
-        'founders': "Fondateurs",
-        'planning': "Planning",
         'register': "S'inscrire",
         'login': "Connexion",
         'dashboard': "Mon Espace",
@@ -40,18 +37,14 @@ TRANSLATIONS = {
         'hero_title': "Apprends le Hacking Éthique & La Cybersécurité",
         'hero_desc': "Rejoins le programme d'élite conçu par Valentin et son collaborateur Aboubacar.",
         'join_btn': "Rejoindre la Formation",
-        'schedule_btn': "Voir l'emploi du temps",
         'chat_title': "Discussion WhatsApp Style",
         'settings': "Paramètres",
-        'send': "Envoyer",
         'type_msg': "Écrire un message...",
         'pay_info': "Paiement via Wave, MTN ou Orange Money au +225 05 65 92 21 05"
     },
     'en': {
         'title': "Ethical Hackers Training Center",
         'home': "Home",
-        'founders': "Founders",
-        'planning': "Schedule",
         'register': "Register",
         'login': "Login",
         'dashboard': "My Account",
@@ -59,10 +52,8 @@ TRANSLATIONS = {
         'hero_title': "Learn Ethical Hacking & Cybersecurity",
         'hero_desc': "Join the elite program created by Valentin and his collaborator Aboubacar.",
         'join_btn': "Join Training",
-        'schedule_btn': "View Schedule",
         'chat_title': "WhatsApp Style Chat",
         'settings': "Settings",
-        'send': "Send",
         'type_msg': "Type a message...",
         'pay_info': "Payment via Wave, MTN or Orange Money at +225 05 65 92 21 05"
     }
@@ -87,60 +78,46 @@ TEMPLATE = """
             --text-main: #e0e6ed;
             --text-muted: #8a99ad;
             --whatsapp-bg: #075e54;
-            --whatsapp-chat: #efeae2;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Rajdhani', sans-serif; }
         body { background-color: var(--bg-dark); color: var(--text-main); overflow-x: hidden; }
         h1, h2, h3 { font-family: 'Orbitron', sans-serif; text-transform: uppercase; }
-        
         header { background: rgba(10, 11, 16, 0.95); border-bottom: 2px solid var(--neon-blue); position: fixed; width: 100%; top: 0; z-index: 1000; }
         .nav-container { max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; flex-wrap: wrap; }
         .logo-box { display: flex; align-items: center; gap: 10px; }
         .logo-img-container { width: 45px; height: 45px; border-radius: 50%; background: linear-gradient(135deg, #1d3557, #e63946); border: 2px solid var(--neon-blue); display: flex; justify-content: center; align-items: center; }
         .logo-text { font-size: 0.95rem; font-weight: 800; color: #fff; line-height: 1.1; }
-        
         .nav-links { display: flex; gap: 15px; list-style: none; align-items: center; flex-wrap: wrap; }
         .nav-links a { color: var(--text-main); text-decoration: none; font-weight: 600; transition: 0.3s; }
         .nav-links a:hover { color: var(--neon-blue); }
         .lang-selector { background: #1a2238; color: #fff; border: 1px solid var(--neon-blue); padding: 5px; border-radius: 4px; }
-
         .hero { padding: 140px 20px 60px; text-align: center; max-width: 900px; margin: 0 auto; }
         .hero h1 { font-size: 2.2rem; margin-bottom: 15px; color: #fff; text-shadow: 0 0 15px rgba(0, 210, 255, 0.5); }
         .hero p { font-size: 1.1rem; color: var(--text-muted); margin-bottom: 25px; }
-        
         .btn-cyber { background: linear-gradient(45deg, var(--neon-blue), #0055ff); color: #fff; padding: 10px 22px; border: none; border-radius: 4px; font-weight: 700; cursor: pointer; text-decoration: none; display: inline-block; transition: 0.3s; }
         .btn-red { background: linear-gradient(45deg, var(--neon-red), #b00020); }
-
         .container { max-width: 1100px; margin: 0 auto; padding: 40px 20px; }
         .panel { background: var(--bg-card); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 10px; padding: 30px; max-width: 550px; margin: 0 auto; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
         .form-group { margin-bottom: 15px; }
         .form-group label { display: block; margin-bottom: 5px; font-weight: 600; }
         .form-control { width: 100%; padding: 10px; background: rgba(0, 0, 0, 0.5); border: 1px solid #2a3447; border-radius: 5px; color: #fff; }
-
-        /* STYLE CHAT TYPE WHATSAPP */
         .whatsapp-container { max-width: 600px; margin: 90px auto 20px; background: #e5ddd5; border-radius: 12px; overflow: hidden; box-shadow: 0 5px 25px rgba(0,0,0,0.6); display: flex; flex-direction: column; height: 550px; }
         .wa-header { background: var(--whatsapp-bg); color: #fff; padding: 12px 15px; display: flex; justify-content: space-between; align-items: center; }
         .wa-header-info { display: flex; align-items: center; gap: 10px; }
         .wa-avatar { width: 40px; height: 40px; background: #fff; color: var(--whatsapp-bg); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.2rem; }
         .wa-actions { display: flex; gap: 15px; font-size: 1.2rem; cursor: pointer; }
-        
         .wa-body { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; background-image: radial-gradient(#d1ccc0 1px, transparent 1px); background-size: 20px 20px; }
-        .wa-message { max-width: 75%; padding: 8px 12px; border-radius: 7.5px; font-size: 0.95rem; color: #000; position: relative; word-wrap: break-word; box-shadow: 0 1px 0.5px rgba(0,0,0,0.13); }
-        .wa-incoming { background: #fff; align-self: flex-start; border-top-left-radius: 0; }
-        .wa-outgoing { background: #dcf8c6; align-self: flex-end; border-top-right-radius: d; }
-        
+        .wa-message { max-width: 75%; padding: 8px 12px; border-radius: 7.5px; font-size: 0.95rem; color: #000; word-wrap: break-word; box-shadow: 0 1px 0.5px rgba(0,0,0,0.13); }
+        .wa-incoming { background: #fff; align-self: flex-start; }
+        .wa-outgoing { background: #dcf8c6; align-self: flex-end; }
         .wa-footer { background: #f0f0f0; padding: 10px; display: flex; align-items: center; gap: 10px; }
         .wa-footer input { flex: 1; padding: 10px 15px; border-radius: 20px; border: 1px solid #ccc; outline: none; }
         .wa-send-btn { background: var(--whatsapp-bg); color: #fff; border: none; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; }
-
-        /* Modal Paramètres */
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 3000; justify-content: center; align-items: center; }
         .modal-content { background: var(--bg-card); padding: 25px; border-radius: 8px; width: 320px; border: 1px solid var(--neon-blue); text-align: center; }
-
         .alert { padding: 10px; border-radius: 5px; margin-bottom: 15px; text-align: center; font-weight: bold; }
         .alert-success { background: rgba(0, 255, 136, 0.2); color: var(--neon-green); }
         .alert-danger { background: rgba(255, 42, 95, 0.2); color: var(--neon-red); }
-
         footer { background: #050608; padding: 20px; text-align: center; color: var(--text-muted); font-size: 0.9rem; margin-top: 40px; }
     </style>
 </head>
@@ -223,7 +200,6 @@ TEMPLATE = """
         {% endif %}
 
         {% if page == 'chat' %}
-        <!-- PAGE DE CHAT TYPE WHATSAPP AVEC BOUTON DE PARAMÈTRES -->
         <div class="whatsapp-container">
             <div class="wa-header">
                 <div class="wa-header-info">
@@ -249,7 +225,6 @@ TEMPLATE = """
             </div>
         </div>
 
-        <!-- Fenêtre Modale de Paramètres -->
         <div class="modal" id="settings-modal">
             <div class="modal-content">
                 <h3 style="color: var(--neon-blue); margin-bottom: 15px;"><i class="fa-solid fa-gear"></i> Paramètres du Chat</h3>
@@ -277,7 +252,6 @@ TEMPLATE = """
     <script>
         function openSettings() { document.getElementById('settings-modal').style.display = 'flex'; }
         function closeSettings() { document.getElementById('settings-modal').style.display = 'none'; }
-
         function sendWaMessage() {
             const input = document.getElementById('wa-input');
             const txt = input.value.trim();
