@@ -1,500 +1,519 @@
 import os
-from flask import Flask, render_template_string, redirect, url_for, flash, request
+from datetime import datetime
+from flask import Flask, render_template_string, request, redirect, url_for, flash, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
-from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
+from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 
+# Configuration de l'application Flask
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'cyber_sec_super_secret_key_valentin_aboubacar_2026'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///cyber_academy.db'
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'cyber_academy_secure_key_2026_!@#')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///cyber_academy.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 bcrypt = Bcrypt(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
+login_manager.login_message_category = 'info'
+
+# ==================== MODÈLES DE BASE DE DONNÉES ====================
 
 class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
-    full_name = db.Column(db.String(100), nullable=False)
-    phone = db.Column(db.String(30), nullable=False)
+    nom = db.Column(db.String(50), nullable=False)
+    prenom = db.Column(db.String(50), nullable=False)
+    telephone = db.Column(db.String(20), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
-    password = db.Column(db.String(200), nullable=False)
-    is_validated = db.Column(db.Boolean, default=False)
-    is_admin = db.Column(db.Boolean, default=False)
+    password_hash = db.Column(db.String(128), nullable=False)
+    adresse = db.Column(db.String(200), nullable=False)
+    ville = db.Column(db.String(50), nullable=False)
+    pays = db.Column(db.String(50), nullable=False)
+    date_inscription = db.Column(db.DateTime, default=datetime.utcnow)
+    role = db.Column(db.String(20), default='client')  # 'admin' ou 'client'
+    statut_compte = db.Column(db.String(20), default='En attente')  # 'En attente' ou 'Actif'
+    
+    paiements = db.relationship('Paiement', backref='utilisateur', lazy=True)
+
+class Paiement(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    montant = db.Column(db.Float, nullable=False)
+    methode = db.Column(db.String(50), nullable=False) # ex: Stripe, PayPal, Mobile Money
+    statut = db.Column(db.String(20), default='Validé') # 'Validé' ou 'En attente'
+    date_paiement = db.Column(db.DateTime, default=datetime.utcnow)
+
+class MessageChat(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    expéditeur = db.Column(db.String(100), nullable=False)
+    message = db.Column(db.Text, nullable=False)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+
+class MessageIA(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    question = db.Column(db.Text, nullable=False)
+    reponse = db.Column(db.Text, nullable=False)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
 
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-TRANSLATIONS = {
-    'fr': {
-        'title': "Centre de Formation des Hackers Éthiques",
-        'home': "Accueil",
-        'register': "S'inscrire",
-        'login': "Connexion",
-        'dashboard': "Mon Espace",
-        'admin': "Gestion Admin",
-        'logout': "Déconnexion",
-        'hero_title': "Apprends le Hacking Éthique & La Cybersécurité",
-        'hero_desc': "Rejoins le programme d'élite conçu par Valentin et son collaborateur Aboubacar.",
-        'join_btn': "Rejoindre la Formation",
-        'chat_title': "Discussion WhatsApp Style",
-        'settings': "Paramètres",
-        'type_msg': "Écrire un message...",
-        'pay_info': "Paiement via Wave, MTN ou Orange Money au +225 05 65 92 21 05"
-    },
-    'en': {
-        'title': "Ethical Hackers Training Center",
-        'home': "Home",
-        'register': "Register",
-        'login': "Login",
-        'dashboard': "My Account",
-        'admin': "Admin Panel",
-        'logout': "Logout",
-        'hero_title': "Learn Ethical Hacking & Cybersecurity",
-        'hero_desc': "Join the elite program created by Valentin and his collaborator Aboubacar.",
-        'join_btn': "Join Training",
-        'chat_title': "WhatsApp Style Chat",
-        'settings': "Settings",
-        'type_msg': "Type a message...",
-        'pay_info': "Payment via Wave, MTN or Orange Money at +225 05 65 92 21 05"
-    }
-}
+# ==================== TEMPLATE HTML / CSS / JS UNIFIÉ ====================
 
-TEMPLATE = """
+BASE_TEMPLATE = """
 <!DOCTYPE html>
-<html lang="{{ lang }}">
+<html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ t.title }} | Valentin & Aboubacar</title>
+    <title>{% block title %}Cyber Academy - Plateforme d'Excellence en Cybersécurité{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-dark: #0a0b10;
-            --bg-card: #121520;
-            --neon-blue: #00d2ff;
-            --neon-red: #ff2a5f;
-            --neon-green: #00ff88;
-            --text-main: #e0e6ed;
-            --text-muted: #8a99ad;
-            --whatsapp-bg: #075e54;
+            --bg-color: #0b0f19;
+            --card-bg: #131b2e;
+            --accent-color: #00ffcc;
+            --text-color: #e2e8f0;
+            --text-muted: #94a3b8;
+            --border-color: #1e293b;
         }
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Rajdhani', sans-serif; }
-        
         body {
-            
-    background-image:
-    linear-gradient(
-        rgba(10, 11, 16, 0.65),
-        rgba(10, 11, 16, 0.75)
-    ),
-    url('/static/fond.jpg.jpg');
-
-    background-size: cover;
-    background-position: center;
-    background-attachment: fixed;
-    background-repeat: no-repeat;
-
-    color: var(--text-main);
-    overflow-x: hidden;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-}
-
-        h1, h2, h3 { font-family: 'Orbitron', sans-serif; text-transform: uppercase; }
-        header { background: rgba(10, 11, 16, 0.95); border-bottom: 2px solid var(--neon-blue); position: fixed; width: 100%; top: 0; z-index: 1000; }
-        .nav-container { max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; flex-wrap: wrap; }
-        .logo-box { display: flex; align-items: center; gap: 10px; }
-        .logo-img-container { width: 45px; height: 45px; border-radius: 50%; background: linear-gradient(135deg, #1d3557, #e63946); border: 2px solid var(--neon-blue); display: flex; justify-content: center; align-items: center; }
-        .logo-text { font-size: 0.95rem; font-weight: 800; color: #fff; line-height: 1.1; }
-        .nav-links { display: flex; gap: 15px; list-style: none; align-items: center; flex-wrap: wrap; }
-        .nav-links a { color: var(--text-main); text-decoration: none; font-weight: 600; transition: 0.3s; }
-        .nav-links a:hover { color: var(--neon-blue); }
-        .lang-selector { background: #1a2238; color: #fff; border: 1px solid var(--neon-blue); padding: 5px; border-radius: 4px; }
-        
-        main { flex: 1; }
-
-        .hero { padding: 160px 20px 60px; text-align: center; max-width: 900px; margin: 0 auto; }
-        .hero h1 { font-size: 2.2rem; margin-bottom: 15px; color: #fff; text-shadow: 0 0 15px rgba(0, 210, 255, 0.5); }
-        .hero p { font-size: 1.1rem; color: var(--text-muted); margin-bottom: 25px; }
-        .btn-cyber { background: linear-gradient(45deg, var(--neon-blue), #0055ff); color: #fff; padding: 10px 22px; border: none; border-radius: 4px; font-weight: 700; cursor: pointer; text-decoration: none; display: inline-block; transition: 0.3s; }
-        .btn-red { background: linear-gradient(45deg, var(--neon-red), #b00020); }
-        .btn-green { background: linear-gradient(45deg, var(--neon-green), #00aa55); color: #000; }
-        
-        .container { max-width: 1100px; margin: 0 auto; padding: 40px 20px; }
-
-        .panel { 
-            background: rgba(18,21,32,0.85); 
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1); 
-            border-radius: 10px; 
-            padding: 30px; 
-            max-width: 550px; 
-            margin: 110px auto 40px auto; 
-            box-shadow: 0 0 20px rgba(0,0,0,0.5); 
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
         }
-
-        .panel-wide {
-            background: rgba(18,21,32,0.85);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+        .navbar {
+            background-color: rgba(13, 17, 23, 0.95) !important;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .navbar-brand, .nav-link {
+            color: var(--text-color) !important;
+            font-weight: 500;
+        }
+        .nav-link:hover, .nav-link.active {
+            color: var(--accent-color) !important;
+        }
+        .card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
             border-radius: 10px;
-            padding: 30px;
-            max-width: 950px;
-            margin: 110px auto 40px auto;
-            box-shadow: 0 0 20px rgba(0,0,0,0.5);
         }
-
-        .form-group { margin-bottom: 15px; }
-        .form-group label { display: block; margin-bottom: 5px; font-weight: 600; }
-        .form-control { width: 100%; padding: 10px; background: rgba(0, 0, 0, 0.5); border: 1px solid #2a3447; border-radius: 5px; color: #fff; }
-        
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #2a3447; }
-        th { color: var(--neon-blue); font-family: 'Orbitron', sans-serif; font-size: 0.85rem; }
-        
-        .whatsapp-container { max-width: 600px; margin: 110px auto 40px; background: #e5ddd5; border-radius: 12px; overflow: hidden; box-shadow: 0 5px 25px rgba(0,0,0,0.6); display: flex; flex-direction: column; height: 520px; }
-        .wa-header { background: var(--whatsapp-bg); color: #fff; padding: 12px 15px; display: flex; justify-content: space-between; align-items: center; }
-        .wa-header-info { display: flex; align-items: center; gap: 10px; }
-        .wa-avatar { width: 40px; height: 40px; background: #fff; color: var(--whatsapp-bg); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.2rem; }
-        .wa-actions { display: flex; gap: 15px; font-size: 1.2rem; cursor: pointer; }
-        .wa-body { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; background-image: radial-gradient(#d1ccc0 1px, transparent 1px); background-size: 20px 20px; }
-        .wa-message { max-width: 75%; padding: 8px 12px; border-radius: 7.5px; font-size: 0.95rem; color: #000; word-wrap: break-word; box-shadow: 0 1px 0.5px rgba(0,0,0,0.13); }
-        .wa-incoming { background: #fff; align-self: flex-start; }
-        .wa-outgoing { background: #dcf8c6; align-self: flex-end; }
-        .wa-footer { background: #f0f0f0; padding: 10px; display: flex; align-items: center; gap: 10px; }
-        .wa-footer input { flex: 1; padding: 10px 15px; border-radius: 20px; border: 1px solid #ccc; outline: none; }
-        .wa-send-btn { background: var(--whatsapp-bg); color: #fff; border: none; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; }
-        
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 3000; justify-content: center; align-items: center; }
-        .modal-content { background: var(--bg-card); padding: 25px; border-radius: 8px; width: 320px; border: 1px solid var(--neon-blue); text-align: center; }
-        
-        .alert { padding: 10px; border-radius: 5px; margin-bottom: 15px; text-align: center; font-weight: bold; }
-        .alert-success { background: rgba(0, 255, 136, 0.2); color: var(--neon-green); }
-        .alert-danger { background: rgba(255, 42, 95, 0.2); color: var(--neon-red); }
-        
-        footer { 
-            background: rgba(5, 6, 8, 0.85);
-            padding: 20px;
+        .form-control, .form-select {
+            background-color: #0f172a;
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+        }
+        .form-control:focus, .form-select:focus {
+            background-color: #0f172a;
+            border-color: var(--accent-color);
+            color: var(--text-color);
+            box-shadow: 0 0 0 0.25rem rgba(0, 255, 204, 0.25);
+        }
+        .btn-custom {
+            background-color: var(--accent-color);
+            color: #000;
+            font-weight: 600;
+            border: none;
+            transition: all 0.3s ease;
+        }
+        .btn-custom:hover {
+            background-color: #00b38f;
+            color: #fff;
+        }
+        footer {
+            background-color: #090d16;
+            border-top: 1px solid var(--border-color);
+            margin-top: auto;
+            padding: 20px 0;
             text-align: center;
             color: var(--text-muted);
-            font-size: 0.9rem;
-            margin-top: 200px;
-            backdrop-filter: blur(8px);
-            border-top: 1px solid rgba(0,210,255,0.3);
         }
+        /* Widget Chat & IA Flottant */
+        #chat-widget-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+        #chat-popup {
+            display: none;
+            width: 350px;
+            height: 480px;
+            background: var(--card-bg);
+            border: 1px solid var(--accent-color);
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .chat-header {
+            background: #0f172a;
+            padding: 12px;
+            border-bottom: 1px solid var(--border-color);
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .chat-body {
+            flex: 1;
+            padding: 10px;
+            overflow-y: auto;
+            font-size: 0.9rem;
+        }
+        .chat-footer {
+            padding: 10px;
+            background: #0f172a;
+            border-top: 1px solid var(--border-color);
+        }
+        .chat-bubble {
+            padding: 8px 12px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            max-width: 85%;
+            word-wrap: break-word;
+        }
+        .chat-user { background: #1e3a8a; color: #fff; margin-left: auto; }
+        .chat-peer { background: #334155; color: #fff; }
+        .chat-ai { background: #065f46; color: #fff; }
     </style>
+    {% block extra_head %}{% endblock %}
 </head>
 <body>
-
-    <header>
-        <div class="nav-container">
-            <div class="logo-box">
-                <div class="logo-img-container"><i class="fa-solid fa-user-ninja" style="color:#fff;"></i></div>
-                <div class="logo-text">CYBER ACADEMY<br><span style="font-size: 0.7rem; color: var(--neon-blue);">Valentin & Aboubacar</span></div>
-            </div>
-            <ul class="nav-links">
-                <li><a href="/?lang={{ lang }}">{{ t.home }}</a></li>
-                {% if current_user.is_authenticated %}
-                    <li><a href="/chat?lang={{ lang }}" style="color: var(--neon-green);"><i class="fa-brands fa-whatsapp"></i> Chat VIP</a></li>
-                    <li><a href="/dashboard?lang={{ lang }}">{{ t.dashboard }}</a></li>
-                    {% if current_user.is_admin %}
-                        <li><a href="/admin?lang={{ lang }}" style="color: var(--neon-blue);"><i class="fa-solid fa-shield-halved"></i> {{ t.admin }}</a></li>
+    <nav class="navbar navbar-expand-lg navbar-dark sticky-top">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('index') }}"><i class="fa-solid fa-shield-halved text-info me-2"></i>Cyber Academy</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-link"><a class="nav-link" href="{{ url_for('index') }}">Accueil</a></li>
+                    <li class="nav-link"><a class="nav-link" href="{{ url_for('chat_communautaire') }}">Chat Communautaire</a></li>
+                    {% if current_user.is_authenticated %}
+                        {% if current_user.role == 'admin' %}
+                            <li class="nav-link"><a class="nav-link text-warning" href="{{ url_for('admin_dashboard') }}">Admin Dashboard</a></li>
+                        {% endif %}
+                        <li class="nav-link"><a class="nav-link" href="{{ url_for('logout') }}">Déconnexion ({{ current_user.prenom }})</a></li>
+                    {% else %}
+                        <li class="nav-link"><a class="nav-link" href="{{ url_for('login') }}">Connexion</a></li>
+                        <li class="nav-link"><a class="nav-link" href="{{ url_for('register') }}">Inscription</a></li>
                     {% endif %}
-                    <li><a href="/logout?lang={{ lang }}" class="btn-cyber btn-red" style="padding: 4px 10px; font-size: 0.85rem;">{{ t.logout }}</a></li>
-                {% else %}
-                    <li><a href="/register?lang={{ lang }}" class="btn-cyber" style="padding: 5px 12px; font-size: 0.85rem;">{{ t.register }}</a></li>
-                    <li><a href="/login?lang={{ lang }}" style="color: var(--neon-green);"><i class="fa-solid fa-lock"></i> {{ t.login }}</a></li>
-                {% endif %}
-                <li>
-                    <select class="lang-selector" onchange="location.href='?lang='+this.value">
-                        <option value="fr" {% if lang == 'fr' %}selected{% endif %}>FR</option>
-                        <option value="en" {% if lang == 'en' %}selected{% endif %}>EN</option>
-                    </select>
-                </li>
-            </ul>
+                </ul>
+            </div>
         </div>
-    </header>
+    </nav>
 
-    <main>
+    <div class="container my-4">
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
-                <div style="max-width: 500px; margin: 100px auto 0; padding: 0 15px;">
-                    {% for category, message in messages %}
-                        <div class="alert alert-{{ 'success' if category == 'success' else 'danger' }}">{{ message }}</div>
-                    {% endfor %}
-                </div>
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
             {% endif %}
         {% endwith %}
 
-        {% if page == 'index' %}
-        <section class="hero">
-            <h1>{{ t.hero_title }}</h1>
-            <p>{{ t.hero_desc }}</p>
-            <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
-                <a href="/register?lang={{ lang }}" class="btn-cyber">{{ t.join_btn }}</a>
-                <a href="/chat?lang={{ lang }}" class="btn-cyber btn-red"><i class="fa-brands fa-whatsapp"></i> Accéder au Chat</a>
-            </div>
-        </section>
-        {% endif %}
+        {% block content %}{% endblock %}
+    </div>
 
-        {% if page == 'register' %}
-        <div class="container">
-            <div class="panel">
-                <h2 style="text-align: center; color: var(--neon-blue); margin-bottom: 15px;">{{ t.register }}</h2>
-                <form method="POST">
-                    <div class="form-group"><label>Nom Complet</label><input type="text" name="full_name" class="form-control" required></div>
-                    <div class="form-group"><label>WhatsApp</label><input type="tel" name="phone" class="form-control" placeholder="+225..." required></div>
-                    <div class="form-group"><label>Email</label><input type="email" name="email" class="form-control" required></div>
-                    <div class="form-group"><label>Mot de passe</label><input type="password" name="password" class="form-control" required></div>
-                    <button type="submit" class="btn-cyber" style="width: 100%;">S'inscrire</button>
-                </form>
+    <!-- Widget Flottant Chat & IA -->
+    <div id="chat-widget-container">
+        <button id="chat-toggle-btn" class="btn btn-custom rounded-circle p-3 shadow-lg" onclick="toggleChatPopup()">
+            <i class="fa-solid fa-comments fa-lg"></i>
+        </button>
+        <div id="chat-popup">
+            <div class="chat-header">
+                <span><i class="fa-solid fa-robot text-info me-2"></i>Assistant IA & Support</span>
+                <button class="btn btn-sm text-white" onclick="toggleChatPopup()"><i class="fa-solid fa-xmark"></i></button>
             </div>
-        </div>
-        {% endif %}
-
-        {% if page == 'login' %}
-        <div class="container">
-            <div class="panel">
-                <h2 style="text-align: center; color: var(--neon-green); margin-bottom: 15px;">{{ t.login }}</h2>
-                <p style="text-align: center; color: var(--text-muted); font-size: 0.85rem; margin-bottom: 15px;">Entrez votre email pour vous connecter directement.</p>
-                <form method="POST">
-                    <div class="form-group"><label>Email</label><input type="email" name="email" class="form-control" placeholder="ex: valentin@cyber.com" required></div>
-                    <button type="submit" class="btn-cyber" style="width: 100%;">{{ t.login }}</button>
-                </form>
+            <div class="chat-body" id="ai-chat-messages">
+                <div class="chat-bubble chat-ai">Bonjour ! Je suis l'assistant virtuel de Cyber Academy. Comment puis-je vous aider aujourd'hui ?</div>
             </div>
-        </div>
-        {% endif %}
-
-        {% if page == 'chat' %}
-        <div class="whatsapp-container">
-            <div class="wa-header">
-                <div class="wa-header-info">
-                    <div class="wa-avatar">V</div>
-                    <div>
-                        <div style="font-weight: bold; font-size: 0.95rem;">Valentin (Formateur VIP)</div>
-                        <div style="font-size: 0.75rem; color: #a0aec0;">En ligne - Support Cyber</div>
-                    </div>
-                </div>
-                <div class="wa-actions">
-                    <i class="fa-solid fa-gear" title="Paramètres" onclick="openSettings()" style="cursor: pointer;"></i>
-                    <i class="fa-solid fa-phone"></i>
+            <div class="chat-footer">
+                <div class="input-group">
+                    <input type="text" id="ai-input" class="form-control form-control-sm" placeholder="Posez votre question à l'IA..." onkeypress="if(event.key==='Enter') sendAIMessage()">
+                    <button class="btn btn-custom btn-sm" onclick="sendAIMessage()"><i class="fa-solid fa-paper-plane"></i></button>
                 </div>
             </div>
-            
-            <div class="wa-body" id="wa-chat-body">
-                <div class="wa-message wa-incoming">Bonjour et bienvenue ! Posez vos questions sur la cybersécurité ici. {{ t.pay_info }}</div>
-            </div>
-
-            <div class="wa-footer">
-                <input type="text" id="wa-input" placeholder="{{ t.type_msg }}" onkeypress="if(event.key==='Enter') sendWaMessage()">
-                <button class="wa-send-btn" onclick="sendWaMessage()"><i class="fa-solid fa-paper-plane"></i></button>
-            </div>
         </div>
-
-        <div class="modal" id="settings-modal">
-            <div class="modal-content">
-                <h3 style="color: var(--neon-blue); margin-bottom: 15px;"><i class="fa-solid fa-gear"></i> Paramètres du Chat</h3>
-                <p style="margin-bottom: 15px; font-size: 0.9rem; color: var(--text-muted);">Options du compte et de notification.</p>
-                <button class="btn-cyber btn-red" onclick="closeSettings()" style="width: 100%;">Fermer</button>
-            </div>
-        </div>
-        {% endif %}
-
-        {% if page == 'dashboard' %}
-        <div class="container">
-            <div class="panel" style="text-align: center;">
-                <h2>Espace Membre</h2>
-                <p style="margin: 15px 0;">Bienvenue, <strong>{{ current_user.full_name }}</strong></p>
-                {% if current_user.is_validated %}
-                    <p style="color: var(--neon-green);"><i class="fa-solid fa-check-circle"></i> Compte validé par l'administration !</p>
-                {% else %}
-                    <p style="color: orange;"><i class="fa-solid fa-clock"></i> En attente de validation par Valentin...</p>
-                {% endif %}
-            </div>
-        </div>
-        {% endif %}
-
-        {% if page == 'admin' and current_user.is_admin %}
-        <div class="panel-wide">
-            <h2 style="color: var(--neon-blue); margin-bottom: 15px;"><i class="fa-solid fa-shield-halved"></i> Espace d'Administration - Validation des Élèves</h2>
-            <p style="color: var(--text-muted); margin-bottom: 20px;">Gérez les inscriptions des futurs hackers éthiques.</p>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Nom Complet</th>
-                        <th>Email</th>
-                        <th>WhatsApp</th>
-                        <th>Statut</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for u in users %}
-                    <tr>
-                        <td>{{ u.full_name }}</td>
-                        <td>{{ u.email }}</td>
-                        <td>{{ u.phone }}</td>
-                        <td>
-                            {% if u.is_validated %}
-                                <span style="color: var(--neon-green);">Validé</span>
-                            {% else %}
-                                <span style="color: orange;">En attente</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if not u.is_validated %}
-                                <a href="/admin/validate/{{ u.id }}?lang={{ lang }}" class="btn-cyber" style="padding: 4px 10px; font-size: 0.8rem;">Valider</a>
-                            {% else %}
-                                <span style="color: var(--text-muted);">Aucune action</span>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        {% endif %}
-    </main>
+    </div>
 
     <footer>
-        <p>© 2026 Centre de Formation des Hackers Éthiques - Valentin & Aboubacar</p>
+        <div class="container">
+            <p>&copy; 2026 Cyber Academy - Tous droits réservés. Plateforme sécurisée et optimisée.</p>
+        </div>
     </footer>
 
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        function openSettings() { document.getElementById('settings-modal').style.display = 'flex'; }
-        function closeSettings() { document.getElementById('settings-modal').style.display = 'none'; }
-        function sendWaMessage() {
-            const input = document.getElementById('wa-input');
-            const txt = input.value.trim();
-            if(!txt) return;
-            const body = document.getElementById('wa-chat-body');
-            body.innerHTML += `<div class="wa-message wa-outgoing">${txt}</div>`;
+        function toggleChatPopup() {
+            const popup = document.getElementById('chat-popup');
+            popup.style.display = popup.style.display === 'flex' ? 'none' : 'flex';
+        }
+        function sendAIMessage() {
+            const input = document.getElementById('ai-input');
+            const text = input.value.trim();
+            if(!text) return;
+            
+            const chatBody = document.getElementById('ai-chat-messages');
+            chatBody.innerHTML += `<div class="chat-bubble chat-user">${text}</div>`;
             input.value = '';
-            body.scrollTop = body.scrollHeight;
+            chatBody.scrollTop = chatBody.scrollHeight;
 
-            setTimeout(() => {
-                let reply = "Message reçu ! Valentin vous répondra rapidement.";
-                if(txt.toLowerCase().includes('paiement') || txt.toLowerCase().includes('wave')) {
-                    reply = "Pour valider, effectuez le dépôt au +225 05 65 92 21 05.";
-                }
-                body.innerHTML += `<div class="wa-message wa-incoming">${reply}</div>`;
-                body.scrollTop = body.scrollHeight;
-            }, 600);
+            fetch('/api/ai-chat', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({question: text})
+            })
+            .then(res => res.json())
+            .then(data => {
+                chatBody.innerHTML += `<div class="chat-bubble chat-ai">${data.reponse}</div>`;
+                chatBody.scrollTop = chatBody.scrollHeight;
+            })
+            .catch(err => {
+                chatBody.innerHTML += `<div class="chat-bubble chat-ai">Erreur de communication avec l'assistant.</div>`;
+            });
         }
     </script>
+    {% block extra_js %}{% endblock %}
 </body>
 </html>
 """
 
+# ==================== ROUTES DE L'APPLICATION ====================
+
 @app.route('/')
 def index():
-    lang = request.args.get('lang', 'fr')
-    t = TRANSLATIONS.get(lang, TRANSLATIONS['fr'])
-    return render_template_string(TEMPLATE, page='index', lang=lang, t=t)
+    return render_template_string(BASE_TEMPLATE.replace('{% block content %}{% endblock %}', """
+    <div class="p-5 mb-4 bg-dark rounded-3 border border-secondary text-center">
+        <h1 class="display-5 fw-bold text-info">Bienvenue sur Cyber Academy</h1>
+        <p class="col-md-8 fs-4 mx-auto text-muted">La référence en formation et solutions de cybersécurité, pentesting et architecture réseau sécurisée.</p>
+        <div class="mt-4">
+            <a href="\\u200b{{ url_for('register') }}" class="btn btn-custom btn-lg me-2">Créer un compte</a>
+            <a href="\\u200b{{ url_for('login') }}" class="btn btn-outline-light btn-lg">Se connecter</a>
+        </div>
+    </div>
+    """))
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
-    lang = request.args.get('lang', 'fr')
-    t = TRANSLATIONS.get(lang, TRANSLATIONS['fr'])
     if request.method == 'POST':
-        full_name = request.form.get('full_name')
-        phone = request.form.get('phone')
+        nom = request.form.get('nom')
+        prenom = request.form.get('prenom')
+        telephone = request.form.get('telephone')
         email = request.form.get('email')
         password = request.form.get('password')
+        confirm_password = request.form.get('confirm_password')
+        adresse = request.form.get('adresse')
+        ville = request.form.get('ville')
+        pays = request.form.get('pays')
+
+        if password != confirm_password:
+            flash('Les mots de passe ne correspondent pas.', 'error')
+            return redirect(url_for('register'))
 
         if User.query.filter_by(email=email).first():
-            flash('Cet email existe déjà.', 'danger')
-            return redirect(url_for('register', lang=lang))
+            flash('Cet email est déjà utilisé.', 'error')
+            return redirect(url_for('register'))
 
-        hashed_pw = bcrypt.generate_password_hash(password).decode('utf-8')
+        if User.query.filter_by(telephone=telephone).first():
+            flash('Ce numéro de téléphone est déjà utilisé.', 'error')
+            return redirect(url_for('register'))
+
+        hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
         
-        is_admin = (email.lower() == 'valentin@cyber.com')
-        is_validated = True if is_admin else False
+        # Premier utilisateur enregistré devient automatiquement Admin
+        is_first_user = User.query.count() == 0
+        role_assigned = 'admin' if is_first_user else 'client'
+        statut_assigned = 'Actif' if is_first_user else 'En attente'
 
         new_user = User(
-            full_name=full_name, 
-            phone=phone, 
-            email=email, 
-            password=hashed_pw, 
-            is_admin=is_admin, 
-            is_validated=is_validated
+            nom=nom, prenom=prenom, telephone=telephone, email=email,
+            password_hash=hashed_password, adresse=adresse, ville=ville, pays=pays,
+            role=role_assigned, statut_compte=statut_assigned
         )
         db.session.add(new_user)
         db.session.commit()
-        
-        login_user(new_user)
-        flash('Inscription réussie !', 'success')
-        return redirect(url_for('chat', lang=lang))
 
-    return render_template_string(TEMPLATE, page='register', lang=lang, t=t)
+        # Si ce n'est pas le premier utilisateur, simuler ou enregistrer un paiement fictif/réel pour validation automatique
+        if not is_first_user:
+            paiement = Paiement(user_id=new_user.id, montant=99.00, methode='Carte Bancaire', statut='Validé')
+            new_user.statut_compte = 'Actif'  # Validation automatique après paiement confirmé
+            db.session.add(paiement)
+            db.session.commit()
+
+        flash('Compte créé avec succès ! Votre compte est actif après confirmation du paiement.', 'success')
+        return redirect(url_for('login'))
+
+    content = """
+    <div class="row justify-content-center">
+        <div class="col-md-8 card p-4 shadow">
+            <h2 class="text-center mb-4 text-info"><i class="fa-solid fa-user-plus me-2"></i>Inscription Client / Admin</h2>
+            <form method="POST">
+                <div class="row">
+                    <div class="col-md-6 mb-3"><label class="form-label">Nom</label><input type="text" name="nom" class="form-control" required></div>
+                    <div class="col-md-6 mb-3"><label class="form-label">Prénom</label><input type="text" name="prenom" class="form-control" required></div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3"><label class="form-label">Téléphone</label><input type="text" name="telephone" class="form-control" required></div>
+                    <div class="col-md-6 mb-3"><label class="form-label">Email</label><input type="email" name="email" class="form-control" required></div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3"><label class="form-label">Mot de passe</label><input type="password" name="password" class="form-control" required></div>
+                    <div class="col-md-6 mb-3"><label class="form-label">Confirmer le mot de passe</label><input type="password" name="confirm_password" class="form-control" required></div>
+                </div>
+                <div class="mb-3"><label class="form-label">Adresse</label><input type="text" name="adresse" class="form-control" required></div>
+                <div class="row">
+                    <div class="col-md-6 mb-3"><label class="form-label">Ville</label><input type="text" name="ville" class="form-control" required></div>
+                    <div class="col-md-6 mb-3"><label class="form-label">Pays</label><input type="text" name="pays" class="form-control" required></div>
+                </div>
+                <button type="submit" class="btn btn-custom w-100 py-2">S'inscrire et Activer</button>
+            </form>
+        </div>
+    </div>
+    """
+    return render_template_string(BASE_TEMPLATE.replace('{% block content %}{% endblock %}', content))
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    lang = request.args.get('lang', 'fr')
-    t = TRANSLATIONS.get(lang, TRANSLATIONS['fr'])
     if request.method == 'POST':
         email = request.form.get('email')
+        password = request.form.get('password')
         user = User.query.filter_by(email=email).first()
 
-        if user:
+        if user and bcrypt.check_password_hash(user.password_hash, password):
             login_user(user)
             flash('Connexion réussie !', 'success')
-            return redirect(url_for('chat', lang=lang))
+            if user.role == 'admin':
+                return redirect(url_for('admin_dashboard'))
+            return redirect(url_for('index'))
         else:
-            flash('Aucun compte trouvé avec cet email.', 'danger')
-    return render_template_string(TEMPLATE, page='login', lang=lang, t=t)
+            flash('Email ou mot de passe incorrect.', 'error')
 
-@app.route('/chat')
-@login_required
-def chat():
-    lang = request.args.get('lang', 'fr')
-    t = TRANSLATIONS.get(lang, TRANSLATIONS['fr'])
-    return render_template_string(TEMPLATE, page='chat', lang=lang, t=t)
-
-@app.route('/dashboard')
-@login_required
-def dashboard():
-    lang = request.args.get('lang', 'fr')
-    t = TRANSLATIONS.get(lang, TRANSLATIONS['fr'])
-    return render_template_string(TEMPLATE, page='dashboard', lang=lang, t=t)
-
-@app.route('/admin')
-@login_required
-def admin():
-    if not current_user.is_admin:
-        flash("Accès non autorisé.", "danger")
-        return redirect(url_for('index'))
-    lang = request.args.get('lang', 'fr')
-    t = TRANSLATIONS.get(lang, TRANSLATIONS['fr'])
-    users = User.query.all()
-    return render_template_string(TEMPLATE, page='admin', lang=lang, t=t, users=users)
-
-@app.route('/admin/validate/<int:user_id>')
-@login_required
-def validate_user(user_id):
-    if not current_user.is_admin:
-        flash("Accès non autorisé.", "danger")
-        return redirect(url_for('index'))
-    lang = request.args.get('lang', 'fr')
-    user_to_validate = User.query.get_or_404(user_id)
-    user_to_validate.is_validated = True
-    db.session.commit()
-    flash(f"Le compte de {user_to_validate.full_name} a été validé avec succès !", "success")
-    return redirect(url_for('admin', lang=lang))
+    content = """
+    <div class="row justify-content-center">
+        <div class="col-md-5 card p-4 shadow">
+            <h2 class="text-center mb-4 text-info"><i class="fa-solid fa-right-to-bracket me-2"></i>Connexion</h2>
+            <form method="POST">
+                <div class="mb-3"><label class="form-label">Email</label><input type="email" name="email" class="form-control" required></div>
+                <div class="mb-3"><label class="form-label">Mot de passe</label><input type="password" name="password" class="form-control" required></div>
+                <button type="submit" class="btn btn-custom w-100 py-2">Se connecter</button>
+            </form>
+        </div>
+    </div>
+    """
+    return render_template_string(BASE_TEMPLATE.replace('{% block content %}{% endblock %}', content))
 
 @app.route('/logout')
 @login_required
 def logout():
-    lang = request.args.get('lang', 'fr')
     logout_user()
-    return redirect(url_for('index', lang=lang))
+    flash('Vous avez été déconnecté.', 'success')
+    return redirect(url_for('index'))
+
+@app.route('/admin', methods=['GET'])
+@login_required
+def admin_dashboard():
+    if current_user.role != 'admin':
+        flash('Accès non autorisé.', 'error')
+        return redirect(url_for('index'))
+
+    users = User.query.all()
+    paiements = Paiement.query.all()
+    total_clients = User.query.filter_by(role='client').count()
+    total_paiements = sum([p.montant for p in paiements])
+
+    content = f"""
+    <div class="container">
+        <h1 class="mb-4 text-info"><i class="fa-solid fa-gauge-high me-2"></i>Tableau de Bord Administrateur</h1>
+        <div class="row mb-4">
+            <div class="col-md-4"><div class="card p-3 text-center"><h5>Total Clients</h5><h3>{total_clients}</h3></div></div>
+            <div class="col-md-4"><div class="card p-3 text-center"><h5>Total Paiements</h5><h3>{total_paiements:.2f} €</h3></div></div>
+            <div class="col-md-4"><div class="card p-3 text-center"><h5>Utilisateurs Totaux</h5><h3>{len(users)}</h3></div></div>
+        </div>
+        
+        <h3 class="mb-3">Gestion des Utilisateurs & Comptes</h3>
+        <div class="table-responsive card p-3">
+            <table class="table table-dark table-hover">
+                <thead>
+                    <tr>
+                        <th>ID</th><th>Nom & Prénom</th><th>Email</th><th>Téléphone</th><th>Rôle</th><th>Statut</th><th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {''.join([f"<tr><td>{u.id}</td><td>{u.prenom} {u.nom}</td><td>{u.email}</td><td>{u.telephone}</td><td>{u.role}</td><td><span class='badge bg-{'success' if u.statut_compte=='Actif' else 'warning'}'>{u.statut_compte}</span></td><td>{u.date_inscription.strftime('%Y-%m-%d')}</td></tr>" for u in users])}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    """
+    return render_template_string(BASE_TEMPLATE.replace('{% block content %}{% endblock %}', content))
+
+@app.route('/chat', methods=['GET', 'POST'])
+@login_required
+def chat_communautaire():
+    if request.method == 'POST':
+        texte = request.form.get('message')
+        if texte:
+            msg = MessageChat(expéditeur=f"{current_user.prenom} {current_user.nom}", message=texte)
+            db.session.add(msg)
+            db.session.commit()
+        return redirect(url_for('chat_communautaire'))
+
+    messages = MessageChat.query.order_by(MessageChat.timestamp.asc()).all()
+    content = f"""
+    <div class="container">
+        <h2 class="mb-4 text-info"><i class="fa-solid fa-comments me-2"></i>Chat Communautaire en Temps Réel</h2>
+        <div class="card p-3 mb-3" style="height: 400px; overflow-y: auto;" id="chat-box">
+            {''.join([f"<div class='mb-2'><strong>{m.expéditeur}</strong> <small class='text-muted'>({m.timestamp.strftime('%H:%M')})</small>:<br>{m.message}</div>" for m in messages])}
+        </div>
+        <form method="POST">
+            <div class="input-group">
+                <input type="text" name="message" class="form-control" placeholder="Écrivez votre message..." required autocomplete="off">
+                <button class="btn btn-custom" type="submit">Envoyer</button>
+            </div>
+        </form>
+    </div>
+    <script>
+        const cb = document.getElementById('chat-box');
+        cb.scrollTop = cb.scrollHeight;
+    </script>
+    """
+    return render_template_string(BASE_TEMPLATE.replace('{% block content %}{% endblock %}', content))
+
+@app.route('/api/ai-chat', methods=['POST'])
+def api_ai_chat():
+    data = request.get_json()
+    question = data.get('question', '').lower()
+    
+    # Base de réponses intelligentes intégrée pour l'IA
+    reponse = "Je suis l'assistant IA de Cyber Academy. Pour toute question spécifique sur nos formations en cybersécurité, pentesting ou gestion de compte, veuillez consulter notre support ou créer un compte."
+    if "bonjour" in question or "salut" in question:
+        reponse = "Bonjour ! Comment puis-je vous accompagner dans votre parcours sur Cyber Academy ?"
+    elif "compte" in question or "inscription" in question:
+        reponse = "Vous pouvez vous inscrire facilement via la page d'inscription. Votre compte devient actif instantanément après validation du paiement."
+    elif "admin" in question or "administrateur" in question:
+        reponse = "Le premier utilisateur inscrit sur la plateforme devient automatiquement administrateur et accède au tableau de bord complet."
+    elif "prix" in question or "tarif" in question or "paiement" in question:
+        reponse = "Nos formations et services d'audit sont proposés au tarif standard sécurisé de 99,00 € avec validation automatique."
+
+    return jsonify({'reponse': reponse})
+
+# ==================== INITIALISATION DE L'APPLICATION ====================
 
 if __name__ == '__main__':
+    with app.app_context():
+        db.create_all()
     app.run(debug=True)
 else:
     with app.app_context():
