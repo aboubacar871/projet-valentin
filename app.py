@@ -165,7 +165,16 @@ TEMPLATE = """
         .alert-success { background: rgba(0, 255, 136, 0.2); color: var(--neon-green); }
         .alert-danger { background: rgba(255, 42, 95, 0.2); color: var(--neon-red); }
         
-        footer { background: #050608; padding: 20px; text-align: center; color: var(--text-muted); font-size: 0.9rem; margin-top: auto; border-top: 1px solid rgba(255,255,255,0.05); }
+        footer { 
+            background: rgba(5, 6, 8, 0.85);
+            padding: 20px;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-top: 200px;
+            backdrop-filter: blur(8px);
+            border-top: 1px solid rgba(0,210,255,0.3);
+        }
     </style>
 </head>
 <body>
@@ -392,7 +401,6 @@ def register():
 
         hashed_pw = bcrypt.generate_password_hash(password).decode('utf-8')
         
-        # Valentin devient admin automatiquement via cet email
         is_admin = (email.lower() == 'valentin@cyber.com')
         is_validated = True if is_admin else False
 
