@@ -85,7 +85,7 @@ TEMPLATE = """
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Rajdhani', sans-serif; }
         
         body {
-            body {
+            
     background-image:
     linear-gradient(
         rgba(10, 11, 16, 0.65),
