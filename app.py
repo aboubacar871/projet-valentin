@@ -21,6 +21,7 @@ class User(db.Model, UserMixin):
     email = db.Column(db.String(120), unique=True, nullable=False)
     password = db.Column(db.String(200), nullable=False)
     is_validated = db.Column(db.Boolean, default=False)
+    is_admin = db.Column(db.Boolean, default=False)
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -33,6 +34,7 @@ TRANSLATIONS = {
         'register': "S'inscrire",
         'login': "Connexion",
         'dashboard': "Mon Espace",
+        'admin': "Gestion Admin",
         'logout': "Déconnexion",
         'hero_title': "Apprends le Hacking Éthique & La Cybersécurité",
         'hero_desc': "Rejoins le programme d'élite conçu par Valentin et son collaborateur Aboubacar.",
@@ -48,6 +50,7 @@ TRANSLATIONS = {
         'register': "Register",
         'login': "Login",
         'dashboard': "My Account",
+        'admin': "Admin Panel",
         'logout': "Logout",
         'hero_title': "Learn Ethical Hacking & Cybersecurity",
         'hero_desc': "Join the elite program created by Valentin and his collaborator Aboubacar.",
@@ -87,7 +90,7 @@ TEMPLATE = """
                 rgba(10, 11, 16, 0.70),
                 rgba(10, 11, 16, 0.85)
             ),
-            url('/static/fond.jpg.jpg');
+            url('/static/fond.jpg');
 
             background-size: cover;
             background-position: center;
@@ -96,6 +99,9 @@ TEMPLATE = """
 
             color: var(--text-main);
             overflow-x: hidden;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
         }
 
         h1, h2, h3 { font-family: 'Orbitron', sans-serif; text-transform: uppercase; }
@@ -108,11 +114,15 @@ TEMPLATE = """
         .nav-links a { color: var(--text-main); text-decoration: none; font-weight: 600; transition: 0.3s; }
         .nav-links a:hover { color: var(--neon-blue); }
         .lang-selector { background: #1a2238; color: #fff; border: 1px solid var(--neon-blue); padding: 5px; border-radius: 4px; }
-        .hero { padding: 140px 20px 60px; text-align: center; max-width: 900px; margin: 0 auto; }
+        
+        main { flex: 1; }
+
+        .hero { padding: 160px 20px 60px; text-align: center; max-width: 900px; margin: 0 auto; }
         .hero h1 { font-size: 2.2rem; margin-bottom: 15px; color: #fff; text-shadow: 0 0 15px rgba(0, 210, 255, 0.5); }
         .hero p { font-size: 1.1rem; color: var(--text-muted); margin-bottom: 25px; }
         .btn-cyber { background: linear-gradient(45deg, var(--neon-blue), #0055ff); color: #fff; padding: 10px 22px; border: none; border-radius: 4px; font-weight: 700; cursor: pointer; text-decoration: none; display: inline-block; transition: 0.3s; }
         .btn-red { background: linear-gradient(45deg, var(--neon-red), #b00020); }
+        .btn-green { background: linear-gradient(45deg, var(--neon-green), #00aa55); color: #000; }
         
         .container { 
             max-width: 1100px; 
@@ -128,14 +138,30 @@ TEMPLATE = """
             border-radius: 10px; 
             padding: 30px; 
             max-width: 550px; 
-            margin: 0 auto; 
+            margin: 90px auto 40px auto; 
             box-shadow: 0 0 20px rgba(0,0,0,0.5); 
+        }
+
+        .panel-wide {
+            background: rgba(18,21,32,0.85);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 30px;
+            max-width: 950px;
+            margin: 90px auto 40px auto;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
         }
 
         .form-group { margin-bottom: 15px; }
         .form-group label { display: block; margin-bottom: 5px; font-weight: 600; }
         .form-control { width: 100%; padding: 10px; background: rgba(0, 0, 0, 0.5); border: 1px solid #2a3447; border-radius: 5px; color: #fff; }
-        .whatsapp-container { max-width: 600px; margin: 90px auto 20px; background: #e5ddd5; border-radius: 12px; overflow: hidden; box-shadow: 0 5px 25px rgba(0,0,0,0.6); display: flex; flex-direction: column; height: 550px; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #2a3447; }
+        th { color: var(--neon-blue); font-family: 'Orbitron', sans-serif; font-size: 0.85rem; }
+        
+        .whatsapp-container { max-width: 600px; margin: 110px auto 40px; background: #e5ddd5; border-radius: 12px; overflow: hidden; box-shadow: 0 5px 25px rgba(0,0,0,0.6); display: flex; flex-direction: column; height: 520px; }
         .wa-header { background: var(--whatsapp-bg); color: #fff; padding: 12px 15px; display: flex; justify-content: space-between; align-items: center; }
         .wa-header-info { display: flex; align-items: center; gap: 10px; }
         .wa-avatar { width: 40px; height: 40px; background: #fff; color: var(--whatsapp-bg); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.2rem; }
@@ -147,21 +173,23 @@ TEMPLATE = """
         .wa-footer { background: #f0f0f0; padding: 10px; display: flex; align-items: center; gap: 10px; }
         .wa-footer input { flex: 1; padding: 10px 15px; border-radius: 20px; border: 1px solid #ccc; outline: none; }
         .wa-send-btn { background: var(--whatsapp-bg); color: #fff; border: none; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+        
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 3000; justify-content: center; align-items: center; }
         .modal-content { background: var(--bg-card); padding: 25px; border-radius: 8px; width: 320px; border: 1px solid var(--neon-blue); text-align: center; }
+        
         .alert { padding: 10px; border-radius: 5px; margin-bottom: 15px; text-align: center; font-weight: bold; }
         .alert-success { background: rgba(0, 255, 136, 0.2); color: var(--neon-green); }
         .alert-danger { background: rgba(255, 42, 95, 0.2); color: var(--neon-red); }
+        
         footer { 
-    background: rgba(5,6,8,0.85);
-    backdrop-filter: blur(8px);
-    padding: 20px; 
-    text-align: center; 
-    color: var(--text-muted); 
-    font-size: 0.9rem; 
-    margin-top: 200px;
-    border-top: 1px solid var(--neon-blue);
-}
+            background: #050608; 
+            padding: 20px; 
+            text-align: center; 
+            color: var(--text-muted); 
+            font-size: 0.9rem; 
+            margin-top: 200px; 
+            border-top: 1px solid rgba(255,255,255,0.05);
+        }
     </style>
 </head>
 <body>
@@ -177,6 +205,9 @@ TEMPLATE = """
                 {% if current_user.is_authenticated %}
                     <li><a href="/chat?lang={{ lang }}" style="color: var(--neon-green);"><i class="fa-brands fa-whatsapp"></i> Chat VIP</a></li>
                     <li><a href="/dashboard?lang={{ lang }}">{{ t.dashboard }}</a></li>
+                    {% if current_user.is_admin %}
+                        <li><a href="/admin?lang={{ lang }}" style="color: var(--neon-blue);"><i class="fa-solid fa-shield-halved"></i> {{ t.admin }}</a></li>
+                    {% endif %}
                     <li><a href="/logout?lang={{ lang }}" class="btn-cyber btn-red" style="padding: 4px 10px; font-size: 0.85rem;">{{ t.logout }}</a></li>
                 {% else %}
                     <li><a href="/register?lang={{ lang }}" class="btn-cyber" style="padding: 5px 12px; font-size: 0.85rem;">{{ t.register }}</a></li>
@@ -195,7 +226,7 @@ TEMPLATE = """
     <main>
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
-                <div style="max-width: 500px; margin: 90px auto 0; padding: 0 15px;">
+                <div style="max-width: 500px; margin: 100px auto 0; padding: 0 15px;">
                     {% for category, message in messages %}
                         <div class="alert alert-{{ 'success' if category == 'success' else 'danger' }}">{{ message }}</div>
                     {% endfor %}
@@ -215,7 +246,7 @@ TEMPLATE = """
         {% endif %}
 
         {% if page == 'register' %}
-        <div class="container" style="margin-top: 70px;">
+        <div class="container">
             <div class="panel">
                 <h2 style="text-align: center; color: var(--neon-blue); margin-bottom: 15px;">{{ t.register }}</h2>
                 <form method="POST">
@@ -230,7 +261,7 @@ TEMPLATE = """
         {% endif %}
 
         {% if page == 'login' %}
-        <div class="container" style="margin-top: 70px;">
+        <div class="container">
             <div class="panel">
                 <h2 style="text-align: center; color: var(--neon-green); margin-bottom: 15px;">{{ t.login }}</h2>
                 <form method="POST">
@@ -278,12 +309,57 @@ TEMPLATE = """
         {% endif %}
 
         {% if page == 'dashboard' %}
-        <div class="container" style="margin-top: 70px;">
+        <div class="container">
             <div class="panel" style="text-align: center;">
                 <h2>Espace Membre</h2>
                 <p style="margin: 15px 0;">Bienvenue, <strong>{{ current_user.full_name }}</strong></p>
-                <p style="color: var(--neon-green);">Statut : Connecté et Prêt</p>
+                {% if current_user.is_validated %}
+                    <p style="color: var(--neon-green);"><i class="fa-solid fa-check-circle"></i> Compte validé par l'administration !</p>
+                {% else %}
+                    <p style="color: orange;"><i class="fa-solid fa-clock"></i> En attente de validation par Valentin...</p>
+                {% endif %}
             </div>
+        </div>
+        {% endif %}
+
+        {% if page == 'admin' and current_user.is_admin %}
+        <div class="panel-wide">
+            <h2 style="color: var(--neon-blue); margin-bottom: 15px;"><i class="fa-solid fa-shield-halved"></i> Espace d'Administration - Validation des Élèves</h2>
+            <p style="color: var(--text-muted); margin-bottom: 20px;">Gérez les inscriptions des futurs hackers éthiques.</p>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Nom Complet</th>
+                        <th>Email</th>
+                        <th>WhatsApp</th>
+                        <th>Statut</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for u in users %}
+                    <tr>
+                        <td>{{ u.full_name }}</td>
+                        <td>{{ u.email }}</td>
+                        <td>{{ u.phone }}</td>
+                        <td>
+                            {% if u.is_validated %}
+                                <span style="color: var(--neon-green);">Validé</span>
+                            {% else %}
+                                <span style="color: orange;">En attente</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if not u.is_validated %}
+                                <a href="/admin/validate/{{ u.id }}?lang={{ lang }}" class="btn-cyber" style="padding: 4px 10px; font-size: 0.8rem;">Valider</a>
+                            {% else %}
+                                <span style="color: var(--text-muted);">Aucune action</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
         {% endif %}
     </main>
@@ -339,11 +415,24 @@ def register():
             return redirect(url_for('register', lang=lang))
 
         hashed_pw = bcrypt.generate_password_hash(password).decode('utf-8')
-        new_user = User(full_name=full_name, phone=phone, email=email, password=hashed_pw)
+        
+        # Définit si c'est le compte admin de Valentin (modifiable ici si besoin)
+        is_admin = (email.lower() == 'valentin@cyber.com')
+        is_validated = True if is_admin else False
+
+        new_user = User(
+            full_name=full_name, 
+            phone=phone, 
+            email=email, 
+            password=hashed_pw, 
+            is_admin=is_admin, 
+            is_validated=is_validated
+        )
         db.session.add(new_user)
         db.session.commit()
         
         login_user(new_user)
+        flash('Inscription réussie !', 'success')
         return redirect(url_for('chat', lang=lang))
 
     return render_template_string(TEMPLATE, page='register', lang=lang, t=t)
@@ -377,6 +466,30 @@ def dashboard():
     lang = request.args.get('lang', 'fr')
     t = TRANSLATIONS.get(lang, TRANSLATIONS['fr'])
     return render_template_string(TEMPLATE, page='dashboard', lang=lang, t=t)
+
+@app.route('/admin')
+@login_required
+def admin():
+    if not current_user.is_admin:
+        flash("Accès non autorisé.", "danger")
+        return redirect(url_for('index'))
+    lang = request.args.get('lang', 'fr')
+    t = TRANSLATIONS.get(lang, TRANSLATIONS['fr'])
+    users = User.query.all()
+    return render_template_string(TEMPLATE, page='admin', lang=lang, t=t, users=users)
+
+@app.route('/admin/validate/<int:user_id>')
+@login_required
+def validate_user(user_id):
+    if not current_user.is_admin:
+        flash("Accès non autorisé.", "danger")
+        return redirect(url_for('index'))
+    lang = request.args.get('lang', 'fr')
+    user_to_validate = User.query.get_or_404(user_id)
+    user_to_validate.is_validated = True
+    db.session.commit()
+    flash(f"Le compte de {user_to_validate.full_name} a été validé avec succès !", "success")
+    return redirect(url_for('admin', lang=lang))
 
 @app.route('/logout')
 @login_required
