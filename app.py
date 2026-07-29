@@ -87,7 +87,7 @@ TEMPLATE = """
                 rgba(10, 11, 16, 0.70),
                 rgba(10, 11, 16, 0.85)
             ),
-            url('/static/fond.jpg.jpg');
+            url('/static/fond.jpg');
 
             background-size: cover;
             background-position: center;
@@ -96,6 +96,9 @@ TEMPLATE = """
 
             color: var(--text-main);
             overflow-x: hidden;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
         }
 
         h1, h2, h3 { font-family: 'Orbitron', sans-serif; text-transform: uppercase; }
@@ -108,7 +111,10 @@ TEMPLATE = """
         .nav-links a { color: var(--text-main); text-decoration: none; font-weight: 600; transition: 0.3s; }
         .nav-links a:hover { color: var(--neon-blue); }
         .lang-selector { background: #1a2238; color: #fff; border: 1px solid var(--neon-blue); padding: 5px; border-radius: 4px; }
-        .hero { padding: 140px 20px 60px; text-align: center; max-width: 900px; margin: 0 auto; }
+        
+        main { flex: 1; }
+
+        .hero { padding: 160px 20px 60px; text-align: center; max-width: 900px; margin: 0 auto; }
         .hero h1 { font-size: 2.2rem; margin-bottom: 15px; color: #fff; text-shadow: 0 0 15px rgba(0, 210, 255, 0.5); }
         .hero p { font-size: 1.1rem; color: var(--text-muted); margin-bottom: 25px; }
         .btn-cyber { background: linear-gradient(45deg, var(--neon-blue), #0055ff); color: #fff; padding: 10px 22px; border: none; border-radius: 4px; font-weight: 700; cursor: pointer; text-decoration: none; display: inline-block; transition: 0.3s; }
@@ -128,14 +134,14 @@ TEMPLATE = """
             border-radius: 10px; 
             padding: 30px; 
             max-width: 550px; 
-            margin: 0 auto; 
+            margin: 90px auto 40px auto; 
             box-shadow: 0 0 20px rgba(0,0,0,0.5); 
         }
 
         .form-group { margin-bottom: 15px; }
         .form-group label { display: block; margin-bottom: 5px; font-weight: 600; }
         .form-control { width: 100%; padding: 10px; background: rgba(0, 0, 0, 0.5); border: 1px solid #2a3447; border-radius: 5px; color: #fff; }
-        .whatsapp-container { max-width: 600px; margin: 90px auto 20px; background: #e5ddd5; border-radius: 12px; overflow: hidden; box-shadow: 0 5px 25px rgba(0,0,0,0.6); display: flex; flex-direction: column; height: 550px; }
+        .whatsapp-container { max-width: 600px; margin: 110px auto 40px; background: #e5ddd5; border-radius: 12px; overflow: hidden; box-shadow: 0 5px 25px rgba(0,0,0,0.6); display: flex; flex-direction: column; height: 520px; }
         .wa-header { background: var(--whatsapp-bg); color: #fff; padding: 12px 15px; display: flex; justify-content: space-between; align-items: center; }
         .wa-header-info { display: flex; align-items: center; gap: 10px; }
         .wa-avatar { width: 40px; height: 40px; background: #fff; color: var(--whatsapp-bg); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.2rem; }
@@ -152,7 +158,16 @@ TEMPLATE = """
         .alert { padding: 10px; border-radius: 5px; margin-bottom: 15px; text-align: center; font-weight: bold; }
         .alert-success { background: rgba(0, 255, 136, 0.2); color: var(--neon-green); }
         .alert-danger { background: rgba(255, 42, 95, 0.2); color: var(--neon-red); }
-        footer { background: #050608; padding: 20px; text-align: center; color: var(--text-muted); font-size: 0.9rem; margin-top: 40px; }
+        
+        footer { 
+            background: #050608; 
+            padding: 20px; 
+            text-align: center; 
+            color: var(--text-muted); 
+            font-size: 0.9rem; 
+            margin-top: 200px; 
+            border-top: 1px solid rgba(255,255,255,0.05);
+        }
     </style>
 </head>
 <body>
@@ -186,7 +201,7 @@ TEMPLATE = """
     <main>
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
-                <div style="max-width: 500px; margin: 90px auto 0; padding: 0 15px;">
+                <div style="max-width: 500px; margin: 100px auto 0; padding: 0 15px;">
                     {% for category, message in messages %}
                         <div class="alert alert-{{ 'success' if category == 'success' else 'danger' }}">{{ message }}</div>
                     {% endfor %}
@@ -206,7 +221,7 @@ TEMPLATE = """
         {% endif %}
 
         {% if page == 'register' %}
-        <div class="container" style="margin-top: 70px;">
+        <div class="container">
             <div class="panel">
                 <h2 style="text-align: center; color: var(--neon-blue); margin-bottom: 15px;">{{ t.register }}</h2>
                 <form method="POST">
@@ -221,7 +236,7 @@ TEMPLATE = """
         {% endif %}
 
         {% if page == 'login' %}
-        <div class="container" style="margin-top: 70px;">
+        <div class="container">
             <div class="panel">
                 <h2 style="text-align: center; color: var(--neon-green); margin-bottom: 15px;">{{ t.login }}</h2>
                 <form method="POST">
@@ -269,7 +284,7 @@ TEMPLATE = """
         {% endif %}
 
         {% if page == 'dashboard' %}
-        <div class="container" style="margin-top: 70px;">
+        <div class="container">
             <div class="panel" style="text-align: center;">
                 <h2>Espace Membre</h2>
                 <p style="margin: 15px 0;">Bienvenue, <strong>{{ current_user.full_name }}</strong></p>
