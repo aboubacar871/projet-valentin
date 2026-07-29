@@ -90,7 +90,21 @@ TEMPLATE = """
             --whatsapp-chat: #efeae2;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Rajdhani', sans-serif; }
-        body { background-color: var(--bg-dark); color: var(--text-main); overflow-x: hidden; }
+        body body {
+    background:
+    linear-gradient(
+        rgba(10,11,16,0.85),
+        rgba(10,11,16,0.95)
+    ),
+    url('/static/fond.jpg.jpg');
+
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+
+    color: var(--text-main);
+    overflow-x: hidden;
+}
         h1, h2, h3 { font-family: 'Orbitron', sans-serif; text-transform: uppercase; }
         
         header { background: rgba(10, 11, 16, 0.95); border-bottom: 2px solid var(--neon-blue); position: fixed; width: 100%; top: 0; z-index: 1000; }
