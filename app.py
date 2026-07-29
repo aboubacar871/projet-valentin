@@ -91,16 +91,18 @@ TEMPLATE = """
         }
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Rajdhani', sans-serif; }
         body body {
-    background:
+   body {
+    background-image:
     linear-gradient(
-        rgba(10,11,16,0.85),
-        rgba(10,11,16,0.95)
+        rgba(10, 11, 16, 0.70),
+        rgba(10, 11, 16, 0.85)
     ),
     url('/static/fond.jpg.jpg');
 
     background-size: cover;
     background-position: center;
     background-attachment: fixed;
+    background-repeat: no-repeat;
 
     color: var(--text-main);
     overflow-x: hidden;
@@ -125,11 +127,42 @@ TEMPLATE = """
         .btn-cyber { background: linear-gradient(45deg, var(--neon-blue), #0055ff); color: #fff; padding: 10px 22px; border: none; border-radius: 4px; font-weight: 700; cursor: pointer; text-decoration: none; display: inline-block; transition: 0.3s; }
         .btn-red { background: linear-gradient(45deg, var(--neon-red), #b00020); }
 
-        .container { max-width: 1100px; margin: 0 auto; padding: 40px 20px; }
-        .panel { background: var(--bg-card); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 10px; padding: 30px; max-width: 550px; margin: 0 auto; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
-        .form-group { margin-bottom: 15px; }
-        .form-group label { display: block; margin-bottom: 5px; font-weight: 600; }
-        .form-control { width: 100%; padding: 10px; background: rgba(0, 0, 0, 0.5); border: 1px solid #2a3447; border-radius: 5px; color: #fff; }
+        .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 40px 20px;
+}
+
+.panel {
+    background: rgba(18,21,32,0.75);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px;
+    padding: 30px;
+    max-width: 550px;
+    margin: 0 auto;
+    box-shadow: 0 0 20px rgba(0,0,0,0.5);
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 600;
+}
+
+.form-control {
+    width: 100%;
+    padding: 10px;
+    background: rgba(0,0,0,0.5);
+    border: 1px solid #2a3447;
+    border-radius: 5px;
+    color: #fff;
+}
 
         /* STYLE CHAT TYPE WHATSAPP */
         .whatsapp-container { max-width: 600px; margin: 90px auto 20px; background: #e5ddd5; border-radius: 12px; overflow: hidden; box-shadow: 0 5px 25px rgba(0,0,0,0.6); display: flex; flex-direction: column; height: 550px; }
