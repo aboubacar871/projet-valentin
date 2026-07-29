@@ -299,7 +299,7 @@ def index():
         <h1 class="display-5 fw-bold text-info">Bienvenue sur Cyber Academy</h1>
         <p class="col-md-8 fs-4 mx-auto text-muted">La référence en formation et solutions de cybersécurité, pentesting et architecture réseau sécurisée.</p>
         <div class="mt-4">
-            <a href="\\u200b{{ url_for('register') }}" class="btn btn-custom btn-lg me-2">Créer un compte</a>
+            <a href="{{ url_for('register') }}" class="btn btn-custom btn-lg me-2">Créer un compte</a>
             <a href="\\u200b{{ url_for('login') }}" class="btn btn-outline-light btn-lg">Se connecter</a>
         </div>
     </div>
